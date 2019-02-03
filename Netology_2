@@ -1,0 +1,52 @@
+SELECT 'ФИО: Федосов Андрей';
+
+--1.1
+SELECT * FROM ratings LIMIT 10;
+
+--1.2
+SELECT *
+FROM links
+WHERE imdbid
+LIKE '%42' AND movieid BETWEEN 100 AND 1000 LIMIT 10;
+
+--2.1
+SELECT *
+FROM links INNER JOIN ratings ON links.movieid = ratings.movieid
+WHERE rating = 5 LIMIT 10;
+
+--3.1
+SELECT COUNT(movieid) FROM ratings WHERE rating IS NOT NULL;
+
+--3.2
+SELECT
+    userId,
+    AVG(rating) as avg_rating
+FROM ratings
+GROUP BY userId
+HAVING AVG(rating) > 3.5
+ORDER BY  AVG(rating) DESC
+LIMIT 10;
+
+
+--4.1
+select
+  l.imdbid
+from links l
+where l.movieid in (
+    SELECT
+      movieid
+    FROM ratings
+    GROUP BY movieid
+    having AVG(RATING) > 3.5
+    order by AVG(RATING) desc
+    limit 10);
+
+--4.2
+select
+    userId,
+    avg(rating)
+from ratings
+group by userId
+having count(userId) > 10
+limit 10;
+
