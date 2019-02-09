@@ -17,6 +17,13 @@ WHERE rating = 5 LIMIT 10;
 --3.1
 SELECT COUNT(movieid) FROM ratings WHERE rating IS NOT NULL;
 
+--ИСПРАВЛЕННЫЙ
+select
+    COUNT(lk.movieid)
+from links lk
+left join ratings rt on lk.movieid = rt.movieid
+where rating is null;
+
 --3.2
 SELECT
     userId,
@@ -40,6 +47,8 @@ where l.movieid in (
     having AVG(RATING) > 3.5
     order by AVG(RATING) desc
     limit 10);
+ 
+
 
 --4.2
 select
@@ -50,3 +59,11 @@ group by userId
 having count(userId) > 10
 limit 10;
 
+ --исправленный
+    with ar  as
+(SELECT userid, AVG(rating) avg_rating
+	FROM ratings
+  GROUP BY userid
+  HAVING COUNT(*) > 10
+)
+SELECT AVG(avg_rating) FROM ar;
