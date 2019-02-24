@@ -1,0 +1,308 @@
+--1. Выведите состав команды meteor.
+select
+    title,
+    name
+from teams ts
+inner join players ps
+on ts.id = team_id
+where ts.id = 2
+;
+
+--2. Выведите имя и дату рождения самого молодого игрока.
+select
+    name,
+    birth as age
+from players
+where birth = (select min(birth) from players)
+group by
+    name,
+    birth
+;
+
+--3. Выведите имена игроков и количество голов, забивших наибольшее количество.
+with m_g as (
+select
+  player_id,
+  Count(event) as goal
+from Events
+where event = 'goal'
+group by player_id
+)
+select
+    name,
+    goal
+from m_g
+inner join players ps
+on m_g.player_id = ps.passport
+where goal = (select max(goal) from m_g)
+group by
+ name,
+ goal
+;
+
+--4. Сколько голов в среднем забили полевые игроки.
+with m_g as (
+select
+  player_id,
+  Count(event) as goal
+from Events
+where event = 'goal'
+group by player_id
+)
+select
+    position,
+    avg(goal) as av_goal
+from m_g
+inner join players ps
+on m_g.player_id = ps.passport
+where position = 'defender'
+    or position = 'forward'
+group by
+    position
+;
+
+--5. Сколько мячей забили команды.
+select
+  ts.title,
+  count(*) as count_goals
+from teams ts
+  inner join
+  (select
+    ps.team_id
+  from events ev
+       inner join players ps
+       on ps.passport = ev.player_id
+  where event = 'goal'
+  ) e
+  on e.team_id = ts.id
+group by
+  ts.title
+order by
+   count_goals desc
+;
+
+--6. Кто из полевых игроков не забил голов.
+select
+  name
+from players
+where passport not in (select player_id from events where event = 'goal')
+  and position <> 'goalkeeper'
+;
+
+--7. Какой матч был самый результативный?
+select
+	m.match_id,
+    t1.title team_home,
+    t2.title team_guest
+from matches m
+inner join teams t1
+on m.team_home = t1.id
+inner join teams t2
+on m.team_guest = t2.id
+where m.match_id = (
+select
+    match_id
+from (
+select
+    match_id,
+    count(event) as sum_goals
+from events
+where event = 'goal'
+group by match_id
+) z
+where sum_goals = (select max(sum_goals) from (select
+    match_id,
+    count(event) as sum_goals
+from events
+where event = 'goal'
+group by match_id ) x))
+;
+
+
+--8. Выведите имена игроков кто забил два мяч в одном матче.
+select
+   p.name
+from events e
+inner join players p
+on e.player_id = p.passport
+where event = 'goal'
+group by
+	p.name,
+    e.match_id,
+    e.player_id
+having count(player_id) = 2
+;
+
+--9. В каких матчах было получено больше всего желтых карточек.
+select
+    m.match_id,
+    t1.title team_home,
+    t2.title team_guest
+from matches m
+inner join teams t1
+on m.team_home = t1.id
+inner join teams t2
+on m.team_guest = t2.id
+where m.match_id in (
+with x as (select
+    match_id,
+    count(event) as qty
+from events
+where event = 'yellow card'
+group by
+    match_id
+)
+select match_id
+from x
+where qty = (select max(qty) from x))
+order by match_id
+;
+
+--10. В каком матче был забит самый быстрый гол?
+
+select
+	m.match_id,
+    t1.title team_home,
+    t2.title team_guest
+from matches m
+inner join teams t1
+on m.team_home = t1.id
+inner join teams t2
+on m.team_guest = t2.id
+where m.match_id in
+ (select
+    match_id
+ from  events e
+ where e.time = (select min(time) from events)
+)
+;
+
+-- Cлздание таблиц--
+
+--Таблица №1
+Create table Teams (
+	Id integer primary key,
+	Title VARCHAR primary key
+);
+
+Insert into Teams values
+(1, 'bars'),
+(2,'meteor'),
+(3,'alteron'),
+(4, 'kristall')
+;
+
+--Таблица №2
+Create table Players (
+	passport integer primary key,
+	name varchar,
+	team_id integer references teams(id),
+	birth date,
+	position text
+);
+Insert into Players values
+(1,'ivanov a.',1,'1994-05-27','goalkeeper'),
+(2,'bistrov d.',1,'1993-02-05','defender'),
+(3,'kasatonov d.',1,'1994-05-17','defender'),
+(4,'belov v.',1,'1992-11-09','forward'),
+(5,'petrov d.',1,'1996-02-17','forward'),
+(6,'sencov p.',1,'1991-10-12','forward'),
+(7,'ivanov b.',2,'1994-06-13','goalkeeper'),
+(8,'vorobiev n.',2,'1996-01-02','defender'),
+(9,'krasnov d.',2,'1995-09-24','defender'),
+(10,'petrov c.',2,'1992-12-05','forward'),
+(11,'bistriy o.',2,'1992-03-16','forward'),
+(12,'osipov o.',2,'1994-09-19','forward'),
+(13,'orlov o.',3,'1996-03-08','goalkeeper'),
+(14,'zimin i.',3,'1994-08-07','defender'),
+(15,'eliseev m.',3,'1996-04-06','defender'),
+(16,'zaicev l.',3,'1994-08-24','forward'),
+(17,'krasnov z.',3,'1993-02-20','forward'),
+(18,'uvarov o.',3,'1995-03-28','forward'),
+(19,'tarasov c.',4,'1993-08-27','goalkeeper'),
+(20,'tarasov k.',4,'1991-10-12','defender'),
+(21,'burov t.',4,'1994-10-10','defender'),
+(22,'naumov t.',4,'1996-09-22','forward'),
+(23,'komarov s.',4,'1993-06-29','forward'),
+(24,'bespalov b.',4,'1996-02-06','forward')
+;
+
+--Таблица №3
+Create table Matches   (
+	match_id integer primary key,
+	team_home integer references teams(id),
+	team_guest integer references teams(id),
+	date_m date
+);
+
+insert into Matches values
+(1,1,2,'2017-06-06'),
+(2,3,4,'2017-06-06'),
+(3,1,3,'2017-06-08'),
+(4,2,4,'2017-06-08'),
+(5,1,4,'2017-06-10'),
+(6,2,3,'2017-06-10'),
+(7,2,1,'2017-06-11'),
+(8,4,3,'2017-06-11'),
+(9,3,1,'2017-06-13'),
+(10,4,2,'2017-06-13'),
+(11,4,1,'2017-06-15'),
+(12,3,2,'2017-06-15')
+;
+
+--Таблица №4
+Create table Events  (
+	match_id integer references matches(match_id),
+	player_id integer references players(passport),
+	event varchar,
+	time time
+);
+
+insert into Events values
+(1,2,'goal','00:02:30'),
+(1,3,'goal','00:04:50'),
+(1,3,'goal','00:14:34'),
+(1,5,'yellow card','00:10:02'),
+(1,6,'yellow card','00:16:33'),
+(2,13,'goal','00:13:45'),
+(2,20,'goal','00:17:54'),
+(2,24,'goal','00:04:03'),
+(2,24,'yellow card','00:06:45'),
+(2,15,'yellow card','00:16:03'),
+(3,5,'goal','00:03:03'),
+(3,5,'goal','00:05:06'),
+(3,17,'goal','00:12:43'),
+(3,15,'goal','00:01:23'),
+(3,18,'red card','00:18:00'),
+(4,10,'goal','00:07:56'),
+(4,11,'goal','00:16:22'),
+(4,22,'goal','00:05:12'),
+(4,21,'goal','00:16:34'),
+(4,21,'yellow card','00:10:22'),
+(5,22,'goal','00:05:12'),
+(5,20,'goal','00:17:12'),
+(6,10,'yellow card','00:05:34'),
+(6,11,'yellow card','00:07:54'),
+(7,8,'goal','00:01:02'),
+(7,11,'goal','00:19:23'),
+(7,11,'goal','00:19:56'),
+(7,5,'goal','00:07:32'),
+(7,6,'goal','00:09:10'),
+(7,6,'yellow card','00:14:24'),
+(8,22,'goal','00:00:45'),
+(8,16,'goal','00:18:23'),
+(9,16,'goal','00:05:12'),
+(9,2,'goal','00:12:43'),
+(9,6,'goal','00:17:54'),
+(9,2,'yellow card','00:14:23'),
+(10,9,'goal','00:06:34'),
+(10,11,'goal','00:16:45'),
+(11,24,'goal','00:10:22'),
+(11,24,'goal','00:10:57'),
+(11,2,'yellow card','00:04:44'),
+(12,9,'goal','00:02:34'),
+(12,12,'goal','00:11:24'),
+(12,17,'yellow card','00:05:45'),
+(12,18,'yellow card','00:12:28'),
+(12,17,'red card','00:15:45')
+;
